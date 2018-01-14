@@ -18,4 +18,3 @@ Get     | List a customer       | http://localhost:8081/api/customers/{id}
 
 Database:
 It uses ObjectStore to store customers information in the form of ObjectStore<ID : HashMap<Attribute:Value>>
-
