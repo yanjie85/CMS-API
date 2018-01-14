@@ -1,0 +1,9 @@
+{
+	"customer":{
+		"id": 123,
+		"firstName": "Mule",
+		"lastName": "Soft",
+		"Address": "77 Geary Street, Suite 400, San Francisco, CA, 94108",
+		"href": "http://localhost:8081/cms/api/v1/123"
+	}
+}

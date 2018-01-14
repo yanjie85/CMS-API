@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:mock="http://www.mulesoft.org/schema/mule/mock" xmlns:munit="http://www.mulesoft.org/schema/mule/munit" xmlns:spring="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+http://www.mulesoft.org/schema/mule/mock http://www.mulesoft.org/schema/mule/mock/current/mule-mock.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
+    <spring:beans>
+        <spring:import resource="classpath:customer-management-api.xml" />
+    </spring:beans>
+    <munit:config mock-connectors="false" mock-inbounds="false" doc:name="MUnit configuration"/>
+    <http:request-config name="HTTP_Request_Configuration" host="localhost" port="8081" basePath="/api" doc:name="HTTP Request Configuration"/>
+    <munit:test name="put:/customers/id:application/json:customer-management-api-config-200-application/json-FlowTest" description="Verifying functionality of [put:/customers/id:application/json:customer-management-api-config-200-application/json]">
+        <mock:when messageProcessor=".*:.*" doc:name="Mock">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Variable']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#[['firstName' :'Mule', 'lastName' : 'Soft', 'address' : '77 Geary Street, Suite 400, San Francisco, CA, 94108']]" mimeType="application/java">
+                <mock:invocation-properties>
+                    <mock:invocation-property key="isContainsKey" value="true"/>
+                </mock:invocation-properties>
+            </mock:then-return>
+        </mock:when>
+        <mock:when messageProcessor=".*:.*" doc:name="Mock">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['ObjectStore: Update a customer by id']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#[]"/>
+        </mock:when>
+        <mock:when messageProcessor=".*:.*" doc:name="Mock">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['ObjectStore: retrieve new customer by id']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#[['firstName' :'Mule', 'lastName' : 'Soft', 'address' : '77 Geary Street, Suite 400, San Francisco, CA, 94108', 'lastModifiedDateTime' : '2018-01-13T19:03:34.872Z']]"/>
+        </mock:when>
+        <set-payload value="#[getResource('scaffolder/request/put_customers_{id}_application_json.json').asString()]" doc:name="Set Payload"/>
+        <http:request config-ref="HTTP_Request_Configuration" method="PUT" path="/customers/123" doc:name="HTTP">
+            <http:request-builder>
+                <http:header headerName="Accept" value="application/json"/>
+                <http:header headerName="Content-Type" value="application/json"/>
+
+            </http:request-builder>
+        </http:request>
+        <object-to-string-transformer doc:name="http response to string" />
+        <munit:assert-true message="The HTTP Status code is not correct!" condition="#[messageInboundProperty('http.status').is(eq(200))]" doc:name="assert that - http.status eq 200" />
+        <munit:assert-on-equals message="The response payload is not correct!" expectedValue="#[getResource('scaffolder/response/put_200_customers_{id}_application_json.json').asString()]" actualValue="#[payload]" doc:name="assert that - payload is as expected" />
+    </munit:test>
+    <munit:test name="put:/customers/id:application/json:customer-management-api-config-400-application/json-FlowTest" description="Verifying functionality of [put:/customers/id:application/json:customer-management-api-config-400-application/json]">
+        <mock:when messageProcessor=".*:.*" doc:name="Mock">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Variable']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#[['firstName' :'Mule', 'lastName' : 'Soft', 'address' : '77 Geary Street, Suite 400, San Francisco, CA, 94108']]" mimeType="application/java">
+                <mock:invocation-properties>
+                    <mock:invocation-property key="isContainsKey" value="false"/>
+                </mock:invocation-properties>
+            </mock:then-return>
+        </mock:when>
+        <set-payload value="#[getResource('scaffolder/request/put_customers_{id}_application_json.json').asString()]" doc:name="Set Payload"/>
+        <http:request config-ref="HTTP_Request_Configuration" method="PUT" path="/customers/123" doc:name="HTTP">
+            <http:request-builder>
+                <http:header headerName="Accept" value="application/json"/>
+                <http:header headerName="Content-Type" value="application/json"/>
+
+            </http:request-builder>
+            <http:success-status-code-validator values="400" />
+        </http:request>
+        <object-to-string-transformer doc:name="http response to string" />
+        <munit:assert-true message="The HTTP Status code is not correct!" condition="#[messageInboundProperty('http.status').is(eq(400))]" doc:name="assert that - http.status eq 400" />
+        <munit:assert-on-equals message="The response payload is not correct!" expectedValue="#[getResource('scaffolder/response/put_400_customers_{id}_application_json.json').asString()]" actualValue="#[payload]" doc:name="assert that - payload is as expected" />
+    </munit:test>
+    <munit:test name="delete:/customers/id:customer-management-api-config-204-application/json-FlowTest" description="Verifying functionality of [delete:/customers/id:customer-management-api-config-204-application/json]">
+        <mock:when messageProcessor=".*:.*" doc:name="Mock">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['ObjectStore: Delete a customer by id']"/>
+            </mock:with-attributes>
+        </mock:when>
+        <http:request config-ref="HTTP_Request_Configuration" method="DELETE" path="/customers/123" doc:name="HTTP">
+            <http:request-builder>
+                <http:header headerName="Accept" value="application/json"/>
+
+            </http:request-builder>
+        </http:request>
+        <object-to-string-transformer doc:name="http response to string" />
+        <munit:assert-true message="The HTTP Status code is not correct!" condition="#[messageInboundProperty('http.status').is(eq(204))]" doc:name="assert that - http.status eq 204" />
+        <munit:assert-on-equals message="The response payload is not correct!" expectedValue="#[getResource('scaffolder/response/delete_204_customers_{id}_application_json.json').asString()]" actualValue="#[payload]" doc:name="assert that - payload is as expected" />
+    </munit:test>
+    <munit:test name="delete:/customers/id:customer-management-api-config-400-application/json-FlowTest" description="Verifying functionality of [delete:/customers/id:customer-management-api-config-400-application/json]">
+        <mock:throw-an exception-ref="#[new org.mule.api.store.ObjectDoesNotExistException()]" whenCalling=".*:.*" doc:name="Throw an Exception">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['ObjectStore: Delete a customer by id']"/>
+            </mock:with-attributes>
+        </mock:throw-an>
+        <http:request config-ref="HTTP_Request_Configuration" method="DELETE" path="/customers/123" doc:name="HTTP">
+            <http:request-builder>
+                <http:header headerName="Accept" value="application/json"/>
+
+            </http:request-builder>
+            <http:success-status-code-validator values="400" />
+        </http:request>
+        <object-to-string-transformer doc:name="http response to string" />
+        <munit:assert-true message="The HTTP Status code is not correct!" condition="#[messageInboundProperty('http.status').is(eq(400))]" doc:name="assert that - http.status eq 400" />
+        <munit:assert-on-equals message="The response payload is not correct!" expectedValue="#[getResource('scaffolder/response/delete_400_customers_{id}_application_json.json').asString()]" actualValue="#[payload]" doc:name="assert that - payload is as expected" />
+    </munit:test>
+    <munit:test name="get:/customers:customer-management-api-config-200-application/json-FlowTest" description="Verifying functionality of [get:/customers:customer-management-api-config-200-application/json]">
+        <mock:when messageProcessor=".*:.*" doc:name="Mock - ObjectStore Returned Result">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['ObjectStore: Retrieve all customer keys']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#[['123','123']]" mimeType="application/java"/>
+        </mock:when>
+        <mock:when messageProcessor=".*:.*" doc:name="Mock - ObjectStore Returned Result">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['ObjectStore: Retrieve a customer by key']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#[['firstName' :'Mule', 'lastName' : 'Soft', 'address' : '77 Geary Street, Suite 400, San Francisco, CA, 94108', 'lastModifiedDateTime' : '2018-01-13T19:03:34.872Z']]" mimeType="application/csv"/>
+        </mock:when>
+        <http:request config-ref="HTTP_Request_Configuration" method="GET" path="/customers" doc:name="HTTP">
+            <http:request-builder>
+                <http:header headerName="Accept" value="application/json" />
+            </http:request-builder>
+        </http:request>
+        <object-to-string-transformer doc:name="http response to string" />
+        <munit:assert-true message="The HTTP Status code is not correct!" condition="#[messageInboundProperty('http.status').is(eq(200))]" doc:name="assert that - http.status eq 200" />
+        <munit:assert-on-equals message="The response payload is not correct!" expectedValue="#[getResource('scaffolder/response/get_200_customers_application_json.json').asString()]" actualValue="#[payload]" doc:name="assert that - payload is as expected" />
+    </munit:test>
+    <munit:test name="get:/customers/id:customer-management-api-config-200-application/json-FlowTest" description="Verifying functionality of [get:/customers/id:customer-management-api-config-200-application/json]">
+        <mock:when messageProcessor=".*:.*" doc:name="Mock - ObjectStore Returned Result">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['ObjectStore: Retrieve a customer by id']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#[['firstName' :'Mule', 'lastName' : 'Soft', 'address' : '77 Geary Street, Suite 400, San Francisco, CA, 94108', 'lastModifiedDateTime' : '2018-01-13T19:03:34.872Z']]" encoding="UTF-8" mimeType="application/java"/>
+        </mock:when>
+
+        <http:request config-ref="HTTP_Request_Configuration" method="GET" path="/customers/123" doc:name="HTTP">
+            <http:request-builder>
+                <http:header headerName="Accept" value="application/json"/>
+
+            </http:request-builder>
+        </http:request>
+        <object-to-string-transformer doc:name="http response to string" />
+        <munit:assert-true message="The HTTP Status code is not correct!" condition="#[messageInboundProperty('http.status').is(eq(200))]" doc:name="assert that - http.status eq 200" />
+        <json:json-to-object-transformer doc:name="JSON to Object: Convert to HashMap" returnClass="java.util.HashMap"/>
+        <munit:assert-on-equals message="The response payload is not correct!" expectedValue="123" actualValue="#[payload.id]" doc:name="assert that - payload has id equal to" />
+        <munit:assert-on-equals message="The response payload is not correct!" expectedValue="Mule" actualValue="#[payload.firstName]" doc:name="assert that - payload has firstName equal to"/>
+        <munit:assert-on-equals message="The response payload is not correct!" expectedValue="Soft" actualValue="#[payload.lastName]" doc:name="assert that - payload has lastName equal to"/>
+        <munit:assert-on-equals message="The response payload is not correct!" expectedValue="77 Geary Street, Suite 400, San Francisco, CA, 94108" actualValue="#[payload.address]" doc:name="assert that - payload has address equal to"/>
+        <munit:assert-on-equals message="The response payload is not correct!" expectedValue="2018-01-13T19:03:34.872Z" actualValue="#[payload.lastModifiedDateTime]" doc:name="assert that - payload has lastModifiedDateTime equal to"/>
+        <munit:assert-on-equals message="The response payload is not correct!" expectedValue="http://localhost:8081/api/customers/123" actualValue="#[payload.href]" doc:name="assert that - payload has href equal to"/>
+    </munit:test>
+    <munit:test name="get:/customers/id:customer-management-api-config-400-application/json-FlowTest" description="Verifying functionality of [get:/customers/id:customer-management-api-config-400-application/json]">
+        <mock:throw-an exception-ref="#[new org.mule.api.store.ObjectDoesNotExistException()]" whenCalling=".*:.*" doc:name="Throw an Exception">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['ObjectStore: Retrieve a customer by id']"/>
+            </mock:with-attributes>
+        </mock:throw-an>
+        <http:request config-ref="HTTP_Request_Configuration" method="GET" path="/customers/123" doc:name="HTTP">
+            <http:request-builder>
+                <http:header headerName="Accept" value="application/json"/>
+
+            </http:request-builder>
+            <http:success-status-code-validator values="400" />
+        </http:request>
+        <object-to-string-transformer doc:name="http response to string" />
+        <munit:assert-true message="The HTTP Status code is not correct!" condition="#[messageInboundProperty('http.status').is(eq(400))]" doc:name="assert that - http.status eq 400" />
+        <munit:assert-on-equals message="The response payload is not correct!" expectedValue="#[getResource('scaffolder/response/get_400_customers_{id}_application_json.json').asString()]" actualValue="#[payload]" doc:name="assert that - payload is as expected" />
+    </munit:test>
+    <munit:test name="post:/customers:application/json:customer-management-api-config-201-application/json-FlowTest" description="Verifying functionality of [post:/customers:application/json:customer-management-api-config-201-application/json]">
+        <mock:when messageProcessor=".*:.*" doc:name="Mock">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['JSON to Object: Convert JSON to HashMap']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#[['firstName' :'Mule', 'lastName' : 'Soft', 'address' : '77 Geary Street, Suite 400, San Francisco, CA, 94108', 'lastModifiedDateTime' : '2018-01-13T19:03:34.872Z']]" mimeType="application/java"/>
+        </mock:when>
+        <mock:when messageProcessor=".*:.*" doc:name="Mock">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Variable: Set id']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#[samePayload()]">
+                <mock:invocation-properties>
+                    <mock:invocation-property key="id" value="123"/>
+                </mock:invocation-properties>
+            </mock:then-return>
+        </mock:when>
+        <mock:when messageProcessor=".*:.*" doc:name="Mock">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['ObjectStore: Store a customer ']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#[samePayload()]" mimeType="application/java"/>
+        </mock:when>
+        <mock:when messageProcessor=".*:.*" doc:name="Mock">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Expression: Put lastModifiedDateTime into payload ']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#[samePayload()]">
+                <mock:invocation-properties>
+                    <mock:invocation-property key="lastModifiedDateTime" value="2018-01-14T21:42:05.498Z"/>
+                </mock:invocation-properties>
+            </mock:then-return>
+        </mock:when>
+        <set-payload value="#[getResource('scaffolder/request/post_customers_application_json.json').asString()]" doc:name="Set Payload"/>
+        <http:request config-ref="HTTP_Request_Configuration" method="POST" path="/customers" doc:name="HTTP">
+            <http:request-builder>
+                <http:header headerName="Accept" value="application/json" />
+                <http:header headerName="Content-Type" value="application/json" />
+            </http:request-builder>
+        </http:request>
+        <object-to-string-transformer doc:name="http response to string" />
+        <munit:assert-true message="The HTTP Status code is not correct!" condition="#[messageInboundProperty('http.status').is(eq(201))]" doc:name="assert that - http.status eq 201" />
+        <munit:assert-on-equals message="The response payload is not correct!" expectedValue="#[getResource('scaffolder/response/post_201_customers_application_json.json').asString()]" actualValue="#[payload]" doc:name="assert that - payload is as expected" />
+    </munit:test>
+</mule>

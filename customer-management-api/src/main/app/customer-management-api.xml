@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:objectstore="http://www.mulesoft.org/schema/mule/objectstore" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:spring="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/apikit http://www.mulesoft.org/schema/mule/apikit/current/mule-apikit.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/objectstore http://www.mulesoft.org/schema/mule/objectstore/current/mule-objectstore.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+    <http:listener-config name="customer-management-api-httpListenerConfig" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration" />
+    <apikit:config name="customer-management-api-config" raml="customer-management-api.raml" consoleEnabled="false" doc:name="Router"/>
+    <objectstore:config name="customerObjectStoreConfiguration" partition="customer"  persistent="true" doc:name="ObjectStore: Connector" objectStore-ref="_defaultUserObjectStore"/>
+    <validation:config name="Validation_Configuration" doc:name="Validation Configuration"/>
+    <flow name="customer-management-api-main">
+        <http:listener config-ref="customer-management-api-httpListenerConfig" path="/api/*" doc:name="HTTP"/>
+        <apikit:router config-ref="customer-management-api-config" doc:name="APIkit Router"/>
+        <exception-strategy ref="customer-management-api-apiKitGlobalExceptionMapping" doc:name="Reference Exception Strategy"/>
+    </flow>
+    <flow name="customer-management-api-console">
+        <http:listener config-ref="customer-management-api-httpListenerConfig" path="/console/*" doc:name="HTTP"/>
+        <apikit:console config-ref="customer-management-api-config" doc:name="APIkit Console"/>
+    </flow>
+    <flow name="put:/customers/{id}:customer-management-api-config">
+        <http:listener config-ref="customer-management-api-httpListenerConfig" path="/{id}" allowedMethods="put" doc:name="HTTP: Listener to handle update a customer request by id"/>
+        <set-property propertyName="Content-Type" value="application/json" encoding="ISO-8859-6" doc:name="Property: Set Content-Type"/>
+        <json:json-to-object-transformer returnClass="java.util.HashMap" mimeType="application/java" doc:name="JSON to Object: Convert JSON to HashMap"/>
+        <set-variable variableName="isContainsKey" value="#[app.registry.customerObjectStoreConfiguration.contains(message.inboundProperties.'http.uri.params'.id)]" doc:name="Variable"/>
+        <validation:is-true expression="#[flowVars.isContainsKey]" doc:name="Validation: Is customer id exist" config-ref="Validation_Configuration"/>
+        <validation:all config-ref="Validation_Configuration" doc:name="Validation: Validate body is not empty">
+            <validation:validations>
+                <validation:is-not-null value="#[payload.firstName]"/>
+                <validation:is-not-null value="#[payload.address]"/>
+                <validation:is-not-null value="#[payload.lastName]"/>
+            </validation:validations>
+        </validation:all>
+        <expression-component doc:name="Expression: Put lastModifiedDateTime into payload "><![CDATA[#[payload.lastModifiedDateTime=server.dateTime.format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")]]]></expression-component>
+        <objectstore:retrieve-and-store config-ref="customerObjectStoreConfiguration" key="#[message.inboundProperties.'http.uri.params'.id]" doc:name="ObjectStore: Update a customer by id" storeValue-ref="#[payload]"/>
+        <objectstore:retrieve config-ref="customerObjectStoreConfiguration" key="#[message.inboundProperties.'http.uri.params'.id]" doc:name="ObjectStore: retrieve new customer by id"/>
+        <expression-component doc:name="Expression: Put id into payload "><![CDATA[#[payload.id=message.inboundProperties.'http.uri.params'.id]]]></expression-component>
+        <set-variable variableName="href" value="#[message.inboundProperties.'http.scheme']://#[message.inboundProperties.host]#[message.inboundProperties.'http.request.uri']" doc:name="Variable: Set href"/>
+        <expression-component doc:name="Expression: Put href into payload"><![CDATA[#[payload.href=flowVars.href]]]></expression-component>
+        <json:object-to-json-transformer doc:name="Object to JSON: Convert HashMap to JSON"/>
+        <choice-exception-strategy doc:name="Choice Exception Strategy">
+            <catch-exception-strategy when="exception.causedBy(org.mule.extension.validation.api.MultipleValidationException)" doc:name="Catch Exception Strategy: Catch MultipleValidationException">
+                <set-payload value="{   &quot;userMessage&quot;: &quot;Request message body is empty&quot;,   &quot;internalMessage&quot;: &quot;Missing required information {firstName, lastName and address&quot; }" doc:name="Set Payload: Set error message into body"/>
+                <set-property propertyName="http.reason" value="Request message body is empty" doc:name="Property: Set http reason"/>
+                <set-property propertyName="http.status" value="400" doc:name="Property: Set http status"/>
+            </catch-exception-strategy>
+            <catch-exception-strategy when="exception.causedBy(org.mule.extension.validation.api.ValidationException)" doc:name="Catch Exception Strategy: Catch ValidationException">
+                <set-payload value="{   &quot;userMessage&quot;: &quot;Customer not found&quot;,   &quot;internalMessage&quot;: &quot;Unable to update customer due to customer not found&quot; }" doc:name="Set Payload: Set error message into body"/>
+                <set-property propertyName="http.reason" value="Customer not found" doc:name="Property: Set http reason"/>
+                <set-property propertyName="http.status" value="400" doc:name="Property: Set http status"/>
+            </catch-exception-strategy>
+            <catch-exception-strategy when="exception.causedBy(org.codehaus.jackson.JsonParseException)" doc:name="Catch Exception Strategy: Catch JsonParseException">
+                <set-payload value="{   &quot;userMessage&quot;: &quot;Request message body is empty or invalid&quot;,   &quot;internalMessage&quot;: &quot;Unable to parse message body due to invalid JSON format or empty message body&quot; }" doc:name="Set Payload: Set error message into body"/>
+                <set-property propertyName="http.reason" value="Request message body is empty or invalid" doc:name="Property: Set http reason"/>
+                <set-property propertyName="http.status" value="400" doc:name="Property: Set http status"/>
+            </catch-exception-strategy>
+        </choice-exception-strategy>
+
+    </flow>
+    <flow name="delete:/customers/{id}:customer-management-api-config">
+        <http:listener config-ref="customer-management-api-httpListenerConfig" path="/{id}" allowedMethods="delete" doc:name="HTTP: Listener to handle delete a customer request by id"/>
+        <objectstore:remove config-ref="customerObjectStoreConfiguration" key="#[message.inboundProperties.'http.uri.params'.id]" doc:name="ObjectStore: Delete a customer by id"/>
+        <choice-exception-strategy doc:name="Choice Exception Strategy">
+            <catch-exception-strategy when="exception.causedBy(org.mule.api.store.ObjectDoesNotExistException)" doc:name="Catch Exception Strategy: Catch ObjectDoesNotExistException">
+                <set-payload value="{   &quot;userMessage&quot;: &quot;Customer not found&quot;,   &quot;internalMessage&quot;: &quot;Unable to delete customer due to customer not found&quot; }" doc:name="Payload: Set error message into body"/>
+                <set-property propertyName="http.reason" value="Customer not found" doc:name="Property: Set http reason"/>
+                <set-property propertyName="http.status" value="400" doc:name="Property: Set http status"/>
+            </catch-exception-strategy>
+        </choice-exception-strategy>
+    </flow>
+    <flow name="get:/customers:customer-management-api-config">
+        <http:listener config-ref="customer-management-api-httpListenerConfig" path="/" allowedMethods="get" doc:name="HTTP: Listener to handle get all customers request"/>
+        <objectstore:retrieve-all-keys config-ref="customerObjectStoreConfiguration" doc:name="ObjectStore: Retrieve all customer keys"/>
+        <collection-splitter doc:name="Collection Splitter: Split by payload"/>
+        <set-variable variableName="id" value="#[payload]" doc:name="Variable: Set id"/>
+        <set-variable variableName="href" value="#[message.inboundProperties.'http.scheme']://#[message.inboundProperties.host]#[message.inboundProperties.'http.request.uri']/#[flowVars.id]" doc:name="Variable: Set href"/>
+        <objectstore:retrieve config-ref="customerObjectStoreConfiguration" key="#[payload]" doc:name="ObjectStore: Retrieve a customer by key"/>
+        <expression-component doc:name="Expression: Put id into payload "><![CDATA[#[payload.id=flowVars.id]]]></expression-component>
+        <expression-component doc:name="Expression: Put href into payload"><![CDATA[#[payload.href=flowVars.href]]]></expression-component>
+        <collection-aggregator doc:name="Collection Aggregator: Aggregate all customers into list"/>
+
+    </flow>
+    <flow name="get:/customers/{id}:customer-management-api-config">
+        <http:listener config-ref="customer-management-api-httpListenerConfig" path="/{id}" allowedMethods="get" doc:name="HTTP: Listener to handle get a customers request by id"/>
+        <objectstore:retrieve config-ref="customerObjectStoreConfiguration" key="#[message.inboundProperties.'http.uri.params'.id]" doc:name="ObjectStore: Retrieve a customer by id"/>
+        <expression-component doc:name="Expression: Put id into payload "><![CDATA[#[payload.id=message.inboundProperties.'http.uri.params'.id]]]></expression-component>
+        <set-variable variableName="href" value="#[message.inboundProperties.'http.scheme']://#[message.inboundProperties.host]#[message.inboundProperties.'http.request.uri']" doc:name="Variable: Set href"/>
+        <expression-component doc:name="Expression: Put href into payload"><![CDATA[#[payload.href=flowVars.href]]]></expression-component>
+        <choice-exception-strategy doc:name="Choice Exception Strategy">
+            <catch-exception-strategy when="exception.causedBy(org.mule.api.store.ObjectDoesNotExistException)" doc:name="Catch Exception Strategy: Catch ObjectDoesNotExistException">
+                <set-payload value="{   &quot;userMessage&quot;: &quot;Customer not found&quot;,   &quot;internalMessage&quot;: &quot;Unable to get customer due to customer not found&quot; }" doc:name="Payload: Set error message into body"/>
+                <set-property propertyName="http.reason" value="Customer not found" doc:name="Property: Set http reason"/>
+                <set-property propertyName="http.status" value="400" doc:name="Property: Set http status"/>
+            </catch-exception-strategy>
+        </choice-exception-strategy>
+
+
+    </flow>
+    <flow name="post:/customers:customer-management-api-config">
+        <http:listener config-ref="customer-management-api-httpListenerConfig" path="/" allowedMethods="post" doc:name="HTTP: Listener to handle create new customer request">
+            <http:error-response-builder   />
+        </http:listener>
+        <set-property propertyName="Content-Type" value="application/json" encoding="ISO-8859-6" doc:name="Property: Set Content-Type"/>
+
+        <json:json-to-object-transformer returnClass="java.util.HashMap" mimeType="application/java" doc:name="JSON to Object: Convert JSON to HashMap"/>
+        <validation:all config-ref="Validation_Configuration" doc:name="Validation: Validate body is not empty">
+            <validation:validations>
+                <validation:is-not-null value="#[payload.firstName]"/>
+                <validation:is-not-null value="#[payload.address]"/>
+                <validation:is-not-null value="#[payload.lastName]"/>
+            </validation:validations>
+        </validation:all>
+        <set-variable variableName="id" value="#[java.util.UUID.randomUUID().toString()]" doc:name="Variable: Set id"/>
+        <expression-component doc:name="Expression: Put lastModifiedDateTime into payload "><![CDATA[#[payload.lastModifiedDateTime=server.dateTime.format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")]]]></expression-component>
+        <objectstore:store config-ref="customerObjectStoreConfiguration" key="#[flowVars.id]" value-ref="#[payload]" overwrite="true" doc:name="ObjectStore: Store a customer "/>
+        <expression-component doc:name="Expression: Put id into payload "><![CDATA[#[payload.id=flowVars.id]]]></expression-component>
+        <set-variable variableName="href" value="#[message.inboundProperties.'http.scheme']://#[message.inboundProperties.host]#[message.inboundProperties.'http.request.uri']/#[flowVars.id]" doc:name="Variable: Set href"/>
+        <expression-component doc:name="Expression: Put href into payload"><![CDATA[#[payload.href=flowVars.href]]]></expression-component>
+        <json:object-to-json-transformer doc:name="Object to JSON: Convert HashMap to JSON"/>
+        <choice-exception-strategy doc:name="Choice Exception Strategy">
+            <catch-exception-strategy doc:name="Catch Exception Strategy: Catch MultipleValidationException" when="exception.causedBy(org.mule.extension.validation.api.MultipleValidationException)">
+            	<set-payload value="{   &quot;userMessage&quot;: &quot;Request message body is empty&quot;,   &quot;internalMessage&quot;: &quot;Missing required information {firstName, lastName and address&quot; }" doc:name="Set Payload: Set error message into body"/>
+                <set-property propertyName="http.reason" value="Request message body is empty" doc:name="Property: Set http reason"/>
+                <set-property propertyName="http.status" value="400" doc:name="Property: Set http status"/>
+
+        	</catch-exception-strategy>
+            <catch-exception-strategy doc:name="Catch Exception Strategy: Catch JsonParseException" when="exception.causedBy(org.codehaus.jackson.JsonParseException)">
+                <set-payload value="{   &quot;userMessage&quot;: &quot;Request message body is empty or invalid&quot;,   &quot;internalMessage&quot;: &quot;Unable to parse message body due to invalid JSON format or empty message body&quot; }" doc:name="Set Payload: Set error message into body"/>
+                <set-property propertyName="http.reason" value="Request message body is empty or invalid" doc:name="Property: Set http reason"/>
+                <set-property propertyName="http.status" value="400" doc:name="Property: Set http status"/>
+            </catch-exception-strategy>
+        </choice-exception-strategy>
+
+    </flow>
+    <apikit:mapping-exception-strategy name="customer-management-api-apiKitGlobalExceptionMapping">
+        <apikit:mapping statusCode="404">
+            <apikit:exception value="org.mule.module.apikit.exception.NotFoundException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{   &quot;userMessage&quot;: &quot;Resource not found&quot;,   &quot;internalMessage&quot;: &quot;There is no resource mapped on the request uri&quot; }" doc:name="Set Payload: Set error message into body"/>
+            <set-property propertyName="http.reason" value="Resource not found" doc:name="Property: Set http reason"/>
+            <set-property propertyName="http.status" value="404" doc:name="Property: Set http status"/>
+
+        </apikit:mapping>
+        <apikit:mapping statusCode="405">
+            <apikit:exception value="org.mule.module.apikit.exception.MethodNotAllowedException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{   &quot;userMessage&quot;: &quot;Http method not allow&quot;,   &quot;internalMessage&quot;: &quot;Unsupported http method, only support post http method&quot; }" doc:name="Payload: Set error message into body"/>
+            <set-property propertyName="http.reason" value="Method not allow" doc:name="Property: Set http reason"/>
+            <set-property propertyName="http.status" value="405" doc:name="Property: Set http status"/>
+
+        </apikit:mapping>
+        <apikit:mapping statusCode="415">
+            <apikit:exception value="org.mule.module.apikit.exception.UnsupportedMediaTypeException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{   &quot;userMessage&quot;: &quot;Unsupported media type&quot;,   &quot;internalMessage&quot;: &quot;Unsupported media type, only support application/json&quot; }" doc:name="Set Payload: Set error message into body"/>
+            <set-property propertyName="http.reason" value="Unsupported media type" doc:name="Property: Set http reason"/>
+            <set-property propertyName="http.status" value="415" doc:name="Property: Set http status"/>
+
+        </apikit:mapping>
+        <apikit:mapping statusCode="406">
+            <apikit:exception value="org.mule.module.apikit.exception.NotAcceptableException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{   &quot;userMessage&quot;: &quot;Message unacceptable&quot;,   &quot;internalMessage&quot;: &quot;Unable to process request due to message not acceptable&quot; }" doc:name="Set Payload: Set error message into body"/>
+            <set-property propertyName="http.reason" value="Message unacceptable" doc:name="Property: Set http reason"/>
+            <set-property propertyName="http.status" value="406" doc:name="property: Set http status"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="400">
+            <apikit:exception value="org.mule.module.apikit.exception.BadRequestException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{   &quot;userMessage&quot;: &quot;Bad request message&quot;,   &quot;internalMessage&quot;: &quot;Unable to process request due to invalid request message&quot; }" doc:name="Set Payload: Set error message into body"/>
+            <set-property propertyName="http.reason" value="Bad request message" doc:name="Property: Set http reason"/>
+            <set-property propertyName="http.status" value="400" doc:name="Property: Set http status"/>
+        </apikit:mapping>
+    </apikit:mapping-exception-strategy>
+</mule>

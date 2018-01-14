@@ -1,0 +1,153 @@
+#%RAML 0.8
+title: Customer Management REST Services API
+version: v1
+protocols: [HTTPS]
+baseUri: https://localhost:8081/api/customers
+mediaType: application/json
+
+/customers:
+  get: 
+    description: List all customers matching query criteria if given else will list all customers
+    queryParameters: 
+      firstName:
+        description: List all customer that matches the provided first name
+        type: string
+        required: false 
+      lastName:
+        description: List all customer that matches the provided last name
+        type: string
+        required: false 
+      address:
+        description: List all customer that matches the provided address
+        type: string
+        required: false 
+      orderBy:
+        description: Order by firstName, lastName or address
+        type: string
+        required: false
+        default: firstName
+      order:
+        description: Order by desc or asc
+        enum: [desc, asc]
+        required: false
+        default: desc
+      offset:
+        description: Skip over a number of elements by specifying an offset value
+        type: integer
+        required: false
+        example: 20
+        default: 0
+      limit:
+        description: Limit the number of elements on the response
+        type: integer
+        required: false
+        example: 80
+        default: 10
+    responses:
+      200:
+        body:
+          application/json:
+            example: |
+              [
+                  {
+                    "id": 123,
+                    "firstName": "Mule",
+                    "lastName": "Soft",
+                    "Address": "77 Geary Street, Suite 400, San Francisco, CA, 94108",
+                    "href": "http://localhost:8081/api/customers/123",
+                    "lastModifiedDateTime": "2018-01-13T19:03:34.872Z"
+                  },
+                  {
+                    "id": 456,
+                    "firstName": "Hello",
+                    "lastName": "World",
+                    "Address": "123, Worldwide Street, Worldwide",
+                    "href": "http://localhost:8081/api/customers/456",
+                    "lastModifiedDateTime": "2018-01-13T19:03:34.872Z"
+                  }
+              ]
+  post:
+    description: Create a new customer
+    body: 
+      application/json: 
+        example: |
+            {
+              "firstName": "Mule",
+              "lastName": "Soft",
+              "Address": "77 Geary Street, Suite 400, San Francisco, CA, 94108"
+            }
+    responses: 
+      201: 
+        body:  
+          application/json: 
+            example: |
+             {
+                  "id": 123,
+                  "firstName": "Mule",
+                  "lastName": "Soft",
+                  "Address": "77 Geary Street, Suite 400, San Francisco, CA, 94108",
+                  "href": "http://localhost:8081/api/customers/123",
+                  "lastModifiedDateTime": "2018-01-13T19:03:34.872Z"
+              }
+  /{id}:
+    get:
+      description: Get a customer by customer ID
+      responses:
+          200:
+            body:
+              application/json:
+                example: |
+                  {
+                      "id": 123,
+                      "firstName": "Mule",
+                      "lastName": "Soft",
+                      "Address": "77 Geary Street, Suite 400, San Francisco, CA, 94108",
+                      "href": "http://localhost:8081/api/customers/123",
+                      "lastModifiedDateTime": "2018-01-13T19:03:34.872Z"
+                  }
+          400:
+            body:
+              application/json:
+                example: |
+                  {
+                      "userMessage": "Sorry, the requested resource does not exist",
+                      "internalMessage": "No customer found in the database"
+                  }
+    put:
+      description: Update a customer by customer ID
+      body: 
+        application/json: 
+          example: xxx
+      responses: 
+        200:
+          body:
+            application/json:
+              example: |
+                {
+                    "firstName": "Mule",
+                    "lastName": "Soft",
+                    "Address": "77 Geary Street, Suite 400, San Francisco, CA, 94108",
+                }
+        400:
+          body:
+            application/json:
+              example: |
+                {
+                    "userMessage": "Sorry, the requested resource does not exist",
+                    "internalMessage": "Unable to update customer due to customer not exist in the database"
+                }
+
+    delete: 
+      description: Delete a customer by customer ID
+      responses:
+        204:
+          body:
+            application/json:
+        400:
+          body:
+            application/json:
+              example: |
+                {
+                    "userMessage": "Sorry, the requested resource does not exist",
+                    "internalMessage": "Unable to delete customer due to customer not exist in the database"
+                }

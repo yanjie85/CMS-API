@@ -1,0 +1,8 @@
+{
+  "errors": [
+   {
+    "userMessage": "Sorry, the requested resource does not exist",
+    "internalMessage": "No customer found in the database"
+   }
+  ]
+}
